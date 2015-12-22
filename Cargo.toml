@@ -1,0 +1,14 @@
+[package]
+name = "iai"
+version = "0.1.0"
+authors = ["boddmg <boddmg@gmail.com>"]
+
+[lib]
+name = "iai"
+# this could be “staticlib” as well
+crate-type = ["dylib"]
+
+[dependencies]
+serial = "0.3"
+libc = "*"
+	
