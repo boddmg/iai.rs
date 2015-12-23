@@ -1,3 +1,6 @@
+#![feature(iter_arith)]
+
+mod utilities;
 extern crate serial;
 
 use std::io;
@@ -32,7 +35,6 @@ fn setup_port<T: SerialPort>(port: &mut T, baud_rate: i32) -> io::Result<()> {
 
 fn read_and_write_command(port: &mut SerialPort, command_to_send: String) -> io::Result<String> {
     let mut buf = command_to_send.into_bytes();
-
     try!(port.write(&mut buf[..]));
     try!(port.read(&mut buf[..]));
     let read_string = String::from_utf8(buf);
@@ -40,12 +42,9 @@ fn read_and_write_command(port: &mut SerialPort, command_to_send: String) -> io:
     Ok(read_string.unwrap())
 }
 
-fn int_to_upper_hex(number: i32) -> String {
-    format!("{:X}", number)
-}
-
 fn get_position(port: &mut SerialPort) -> io::Result<f64> {
-    let mut buf = "?[99]STA".to_string().into_bytes();
+    let mut command = "?[99]STA".to_string();
+    let mut buf = command.into_bytes();
     try!(port.write(&mut buf));
     Ok(1.2)
 }
@@ -61,6 +60,5 @@ pub extern "C" fn test_function() -> String {
     "abc".to_string()
 }
 
-fn main() {
-    test_function();
-}
+#[cfg(test)]
+mod tests;
