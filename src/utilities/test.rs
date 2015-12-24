@@ -1,6 +1,5 @@
 #[macro_use]
 use super::*;
-use super::calculate_check_sum;
 
 #[test]
 fn test_int_to_upper_hex() {

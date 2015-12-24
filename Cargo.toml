@@ -11,4 +11,6 @@ crate-type = ["dylib"]
 [dependencies]
 serial = "0.3"
 libc = "*"
-	
+mockstream = "*"
+bufstream = "*"
+regex = "*"

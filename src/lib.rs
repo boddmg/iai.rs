@@ -1,13 +1,18 @@
 #![feature(iter_arith)]
+#![feature(convert)]
 
+#[macro_use]
 mod utilities;
+use utilities::calculate_check_sum;
 extern crate serial;
+extern crate bufstream;
+use regex::Regex;
 
 use std::io;
 use std::time::Duration;
 use std::string::String;
-
 use std::io::prelude::*;
+use bufstream::BufStream;
 use serial::prelude::*;
 
 fn get_baudrate_enum(baud_rate: i32) -> serial::BaudRate {
@@ -33,19 +38,28 @@ fn setup_port<T: SerialPort>(port: &mut T, baud_rate: i32) -> io::Result<()> {
     Ok(())
 }
 
-fn read_and_write_command(port: &mut SerialPort, command_to_send: String) -> io::Result<String> {
-    let mut buf = command_to_send.into_bytes();
-    try!(port.write(&mut buf[..]));
-    try!(port.read(&mut buf[..]));
-    let read_string = String::from_utf8(buf);
-    println!("{:?}", read_string);
-    Ok(read_string.unwrap())
+fn read_and_write_command<T: io::Read + io::Write>(
+    port: &mut T, 
+    command_to_send: &str) -> io::Result<String> 
+{
+    let check_sum = calculate_check_sum(command_to_send.to_string());
+    let mut bufPort = BufStream::new(port);
+
+    let mut buf = command_to_send.to_string()
+        + int_to_upper_hex!(check_sum, 2).as_str()
+        + "\r\n";
+    try!(bufPort.write(&mut buf.into_bytes()[..]));
+    bufPort.flush();
+
+    let mut result = String::new();
+    try!(bufPort.read_line(&mut result));
+    Ok(result)
 }
 
-fn get_position(port: &mut SerialPort) -> io::Result<f64> {
-    let mut command = "?[99]STA".to_string();
-    let mut buf = command.into_bytes();
-    try!(port.write(&mut buf));
+fn get_position<T: io::Read + io::Write>(port: &mut T) -> io::Result<f64> {
+    use regex::Regex;
+    let mut statusString = read_and_write_command(port, "?99STA");
+    println!("{:?}", statusString);
     Ok(1.2)
 }
 
@@ -54,9 +68,11 @@ use std::ffi::CStr;
 
 #[no_mangle]
 pub extern "C" fn test_function() -> String {
-    let arg = "COM1";
+    let arg = "COM7";
     let mut port = serial::open(&arg).unwrap();
     setup_port(&mut port, 9600).unwrap();
+    get_position(&mut port);
+    assert_eq!(1, 2);
     "abc".to_string()
 }
 
