@@ -1,11 +1,13 @@
 #![feature(iter_arith)]
 #![feature(convert)]
+#![feature(alloc)]
 
 #[macro_use]
-mod utilities;
+mod utilities;  
 use utilities::calculate_check_sum;
 extern crate serial;
 extern crate bufstream;
+extern crate regex;
 use regex::Regex;
 
 use std::io;
@@ -14,6 +16,9 @@ use std::string::String;
 use std::io::prelude::*;
 use bufstream::BufStream;
 use serial::prelude::*;
+use serial::SystemPort;
+use std::ffi::OsString; 
+use std::boxed;
 
 fn get_baudrate_enum(baud_rate: i32) -> serial::BaudRate {
     match baud_rate {
@@ -38,16 +43,13 @@ fn setup_port<T: SerialPort>(port: &mut T, baud_rate: i32) -> io::Result<()> {
     Ok(())
 }
 
-fn read_and_write_command<T: io::Read + io::Write>(
-    port: &mut T, 
-    command_to_send: &str) -> io::Result<String> 
-{
+fn read_and_write_command<T: io::Read + io::Write>(port: & T,
+                                                   command_to_send: &str)
+                                                   -> io::Result<String> {
     let check_sum = calculate_check_sum(command_to_send.to_string());
-    let mut bufPort = BufStream::new(port);
+    let mut bufPort = BufStream::new(*port);
 
-    let mut buf = command_to_send.to_string()
-        + int_to_upper_hex!(check_sum, 2).as_str()
-        + "\r\n";
+    let mut buf = command_to_send.to_string() + int_to_upper_hex!(check_sum, 2).as_str() + "\r\n";
     try!(bufPort.write(&mut buf.into_bytes()[..]));
     bufPort.flush();
 
@@ -56,24 +58,34 @@ fn read_and_write_command<T: io::Read + io::Write>(
     Ok(result)
 }
 
-fn get_position<T: io::Read + io::Write>(port: &mut T) -> io::Result<f64> {
-    use regex::Regex;
-    let mut statusString = read_and_write_command(port, "?99STA");
+fn get_position<T: io::Read + io::Write>(port: & Box<T>) -> io::Result<f64> {
+    let re = Regex::new(r"STA.(.*) ").unwrap();
+    let mut statusString = read_and_write_command(port, "?99STA")
+                               .unwrap_or("#99STA100000-100.000 ".to_string());
     println!("{:?}", statusString);
+
+    for cap in re.captures_iter(statusString.as_str()) {
+        println!("position:{}", cap.at(1).unwrap().to_string().to_string());
+    }
+
     Ok(1.2)
 }
 
-extern crate libc;
-use std::ffi::CStr;
+fn open_serial(serial_port: &str, baud_rate: i32) -> io::Result<Box<SerialPort>>{
+    let mut boxed_port = Box::new(serial::open(serial_port).unwrap());
+    Ok(boxed_port)
+}
 
 #[no_mangle]
-pub extern "C" fn test_function() -> String {
-    let arg = "COM7";
-    let mut port = serial::open(&arg).unwrap();
-    setup_port(&mut port, 9600).unwrap();
-    get_position(&mut port);
+pub extern "C" fn test_function() -> f64 {
+    let port = open_serial("COM7", 9600).unwrap();
+    let result : Option<f64> = None;
+    result = Some(get_position(& port).unwrap_or(-9999.999));
     assert_eq!(1, 2);
-    "abc".to_string()
+    match result {
+        Some(expr) => expr,
+        None => -9999.999,
+    }
 }
 
 #[cfg(test)]

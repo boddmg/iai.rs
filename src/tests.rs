@@ -10,5 +10,4 @@ fn test_test_function() {
 }
 
 #[test]
-fn test_read_and_write_command() {
-}
+fn test_read_and_write_command() {}
